@@ -283,7 +283,7 @@ with st.sidebar:
     # ---------------- Tham số phân tích ----------------
     st.divider()
     with st.expander("⚙️ Tham số phân tích", expanded=False):
-        sigma = st.slider("Ngưỡng phát hiện (σ)", 3.0, 9.0, 5.0, 0.5)
+        sigma = st.slider("Ngưỡng phát hiện (σ)", 0.0, 9.0, 5.0, 0.25)
         vmax_as = st.number_input("Chuyển động tối đa (″/năm)", 0.5, 600.0, 20.0, 1.0)
         tol_px = st.slider("Dung sai liên kết (px)", 0.5, 4.0, 1.5, 0.25)
         min_ep = st.slider("Số epoch tối thiểu / quỹ đạo", 3, 12, 3)
