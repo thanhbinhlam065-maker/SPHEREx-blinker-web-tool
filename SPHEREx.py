@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import concurrent.futures
 import http.client
 import logging
@@ -38,7 +40,17 @@ def query_spherex_cutouts(coord: SkyCoord, size: u.Quantity, bandpass: str) -> T
     ORDER BY p.time_bounds_lower
     """
     t1 = time.time()
-    results = Irsa.query_tap(query).to_table()
+    results, last_err = None, None
+    for attempt in range(3):  # IRSA hay quá tải: thử lại với backoff
+        try:
+            results = Irsa.query_tap(query).to_table()
+            break
+        except Exception as err:
+            last_err = err
+            print(f"  -> Truy vấn TAP lỗi (lần {attempt + 1}/3): {err}")
+            time.sleep(2 ** (attempt + 1))
+    if results is None:
+        raise RuntimeError(f"Không truy vấn được IRSA TAP: {last_err}")
     print(f"[1/4] Truy vấn TAP hoàn tất trong {time.time() - t1:.2f} giây. Tìm thấy {len(results)} ảnh.")
     return results
 
@@ -73,18 +85,18 @@ def process_single_cutout(row, coord: SkyCoord, cache: bool = False):
         row["hdus"] = hdus
 
 
-def safe_process_cutout(row, coord: SkyCoord, cache: bool = False):
-    """Bọc hàm xử lý cutout để bỏ qua các lỗi kết nối tạm thời."""
-    try:
-        process_single_cutout(row, coord, cache=cache)
-    except (
-        TimeoutError,
-        urllib.error.HTTPError,
-        http.client.IncompleteRead,
-        http.client.RemoteDisconnected,
-    ) as err:
-        print(f"  -> Bỏ qua cutout #{row['cutout_index']} do lỗi tải: {err}")
-        row["hdus"] = None
+def safe_process_cutout(row, coord: SkyCoord, cache: bool = False, retries: int = 3):
+    """Bọc hàm xử lý cutout: thử lại tối đa `retries` lần, hết lần thì bỏ qua cutout."""
+    last = None
+    for attempt in range(retries):
+        try:
+            process_single_cutout(row, coord, cache=cache)
+            return
+        except Exception as err:  # lỗi mạng chập chờn (URLError, OSError, Timeout...)
+            last = err
+            time.sleep(min(2 ** attempt, 8))
+    print(f"  -> Bỏ qua cutout #{row['cutout_index']} do lỗi tải: {last}")
+    row["hdus"] = None
 
 
 # ==============================================================================
@@ -96,32 +108,53 @@ def download_all_cutouts(
     parallel: bool = True,
     max_workers: int = 10,
     cache: bool = False,
+    time_limit_s: float | None = None,
+    progress_cb=None,
 ) -> Table:
-    """Thực thi tải toàn bộ cutout theo chế độ song song hoặc tuần tự."""
+    """Tải toàn bộ cutout (song song hoặc tuần tự). Dừng chờ khi quá `time_limit_s` giây
+    và giữ lại những cutout đã tải xong. progress_cb(done, total) được gọi sau mỗi cutout."""
     n = len(results_table)
     results_table["cutout_index"] = range(1, n + 1)
     results_table["central_wavelength"] = np.full(n, np.nan)
     results_table["version"] = np.full(n, "", dtype="U32")
     results_table["hdus"] = np.full(n, None)
 
+    done = 0
+
+    def tick():
+        nonlocal done
+        done += 1
+        if progress_cb is not None:
+            try:
+                progress_cb(done, n)
+            except Exception:
+                pass
+
     t1 = time.time()
     if parallel:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(safe_process_cutout, row, coord, cache)
-                for row in results_table
-            ]
-            concurrent.futures.wait(futures)
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+        futures = [executor.submit(safe_process_cutout, row, coord, cache) for row in results_table]
+        try:
+            for _ in concurrent.futures.as_completed(futures, timeout=time_limit_s):
+                tick()
+        except concurrent.futures.TimeoutError:
+            print(f"  -> Hết thời gian tải ({time_limit_s:.0f} giây): giữ lại phần đã tải xong.")
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
         mode_str = f"song song ({max_workers} luồng)"
     else:
         for row in results_table:
+            if time_limit_s is not None and time.time() - t1 > time_limit_s:
+                print("  -> Hết thời gian tải: giữ lại phần đã tải xong.")
+                break
             safe_process_cutout(row, coord, cache)
+            tick()
         mode_str = "tuần tự"
 
     elapsed_min = (time.time() - t1) / 60.0
     valid_mask = [h is not None for h in results_table["hdus"]]
     failed_count = n - sum(valid_mask)
-    print(f"[2/4] Tải {mode_str} hoàn tất trong {elapsed_min:.2f} phút (Thành công: {sum(valid_mask)}, Lỗi: {failed_count}).")
+    print(f"[2/4] Tải {mode_str} hoàn tất trong {elapsed_min:.2f} phút (Thành công: {sum(valid_mask)}, Lỗi/bỏ qua: {failed_count}).")
 
     return results_table[valid_mask]
 
@@ -153,7 +186,7 @@ def build_and_save_mef(valid_table: Table, output_filename: str, overwrite: bool
 # ==============================================================================
 # BƯỚC 5: KIỂM TRA VÀ TRỰC QUAN HÓA KẾT QUẢ
 # ==============================================================================
-def inspect_and_plot_mef(output_filename: str, max_plots: int = 10):
+def inspect_and_plot_mef(output_filename: str, max_plots: int = 10, show: bool = True):
     """Đọc lại tệp MEF và hiển thị tối đa 10 ảnh đầu tiên kèm bước sóng trung tâm."""
     summary_table = Table.read(output_filename, hdu=1)
     nbr_images = min(max_plots, len(summary_table))
@@ -184,7 +217,10 @@ def inspect_and_plot_mef(output_filename: str, max_plots: int = 10):
             axes_flat[ii].axis("off")
 
     plt.tight_layout()
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 # ==============================================================================
@@ -200,16 +236,30 @@ def run_spherex_cutout_pipeline(
     cache: bool = False,
     max_cutouts: int | None = None,
     overwrite: bool = True,
+    show_plot: bool = True,
+    plot: bool | None = None,
+    time_limit_s: float | None = None,
+    min_cutouts: int = 1,
+    progress_cb=None,
 ):
+    """Chạy toàn bộ pipeline; trả về đường dẫn tệp MEF (hoặc None nếu thất bại).
+
+    plot: bí danh của show_plot (app Streamlit truyền plot=False).
+    max_cutouts: chọn tối đa N ảnh RẢI ĐỀU theo thời gian (không lấy N ảnh đầu tiên).
+    time_limit_s / progress_cb: giới hạn thời gian tải và callback tiến độ cho giao diện.
+    """
+    if plot is not None:
+        show_plot = plot
+
     results_table = query_spherex_cutouts(coord, size, bandpass)
     if len(results_table) == 0:
         print("Không tìm thấy dữ liệu phù hợp với tọa độ và dải tần đã chọn.")
-        return
+        return None
 
-    # Giới hạn số lượng ảnh nếu chỉ muốn chạy thử nghiệm nhanh
-    if max_cutouts is not None:
-        results_table = results_table[:max_cutouts]
-        print(f"-> Chế độ thử nghiệm: Giới hạn xử lý {len(results_table)} ảnh đầu tiên.")
+    if max_cutouts is not None and len(results_table) > max_cutouts:
+        idx = np.unique(np.linspace(0, len(results_table) - 1, max_cutouts).round().astype(int))
+        results_table = results_table[idx]
+        print(f"-> Chọn {len(results_table)} ảnh rải đều theo thời gian.")
 
     valid_table = download_all_cutouts(
         results_table=results_table,
@@ -217,14 +267,18 @@ def run_spherex_cutout_pipeline(
         parallel=parallel,
         max_workers=max_workers,
         cache=cache,
+        time_limit_s=time_limit_s,
+        progress_cb=progress_cb,
     )
 
-    if len(valid_table) == 0:
-        print("Tất cả các lượt tải đều thất bại, không thể tạo tệp MEF.")
-        return
+    if len(valid_table) == 0 or len(valid_table) < min_cutouts:
+        print(f"Chỉ tải được {len(valid_table)} cutout (cần ≥ {max(min_cutouts, 1)}), không tạo tệp MEF.")
+        return None
 
     build_and_save_mef(valid_table, output_filename, overwrite=overwrite)
-    inspect_and_plot_mef(output_filename)
+    if show_plot:
+        inspect_and_plot_mef(output_filename, show=True)
+    return output_filename
 
 
 if __name__ == "__main__":
