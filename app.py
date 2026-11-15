@@ -314,17 +314,19 @@ def run_fetch(req) -> bool:
                 import SPHEREx as spx
                 if req["force"] and os.path.exists(req["path"]):
                     os.remove(req["path"])
-                st.write("Truy vấn danh sách cutout (IRSA TAP)…")
-                out = spx.run_spherex_cutout_pipeline(
-                    coord=coord, size=req["size"] * u.deg, bandpass=req["band"],
-                    output_filename=req["path"], parallel=True, max_workers=req["workers"],
-                    max_cutouts=req["max_cut"], time_limit_s=req["limit"] * 60,
-                    min_cutouts=2, progress_cb=cb)
-            else:
-                import ImageGenerate_WISE as wise
-                out = wise.download_wise_target(
-                    req["name"], coord, out_dir=WISE_DIR, size=req["size"], pixscale=req["pix"],
-                    workers=6, retries=3, progress_cb=cb)
+                st.write(T["fetch_tap"])
+                spx.run_spherex_cutout_pipeline(
+                    coord=coord,
+                    size=req["size"] * u.deg,
+                    bandpass=req["band"],
+                    output_filename=req["path"],
+                    parallel=True,
+                    max_workers=req["workers"],
+                    max_cutouts=req["max_cut"],
+                    overwrite=True,
+                )
+                plt.close("all")
+                out = req["path"]
         except Exception as exc:
             status.update(label="Tải thất bại", state="error")
             st.error(f"{type(exc).__name__}: {exc}")
