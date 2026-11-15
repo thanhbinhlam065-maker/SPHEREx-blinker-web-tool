@@ -1,8 +1,6 @@
 import argparse
 import glob
 import os
-import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog
 import warnings
 
 from astropy.io import fits
@@ -200,26 +198,50 @@ def scale_to_reference(img, ref, mask=None, n_iter=6, clip=3.0, step=3):
   return ((img - b) / a).astype(np.float32)
 
 
-def prepare_stack(
-    files, ref_index=0, do_psf=True, do_scale=True, exact=False
+def prepare_stack_arrays(
+    data,
+    wcss,
+    names,
+    ref_index=0,
+    do_psf=True,
+    do_scale=True,
+    exact=False,
+    min_valid_frac=0.05,
+    return_keep=False,
 ):
-  """Chuỗi tiền xử lý: Load -> Reproject -> PSF match -> Flux match -> Trừ nền."""
-  data, wcss, names = [], [], []
-  for f in files:
-    try:
-      d, w = load_fits_with_wcs(f)
-      data.append(d)
-      wcss.append(w)
-      names.append(os.path.basename(f))
-    except Exception as e:
-      print(f"  ❌ Bỏ qua file lỗi '{os.path.basename(f)}': {e}")
+  """Tiền xử lý từ mảng có sẵn (không cần đọc file): Reproject -> PSF -> Flux -> Trừ nền.
 
+  data : list ảnh 2D float32 (NaN = pixel xấu)
+  wcss : list WCS 2D (hoặc None)
+  Khung nào sau reproject có < min_valid_frac pixel hợp lệ (không phủ vùng tham
+  chiếu) sẽ bị loại. Trả về (stack, names, invalid_mask, fwhm_target); nếu
+  return_keep=True thì thêm danh sách chỉ số gốc của các khung được giữ lại.
+  """
   if len(data) < 3:
-    raise ValueError(
-        f'Cần ít nhất 3 khung hình FITS hợp lệ (hiện có {len(data)}).'
-    )
+    raise ValueError(f'Cần ít nhất 3 khung hình hợp lệ (hiện có {len(data)}).')
+  if not 0 <= ref_index < len(data):
+    ref_index = 0
 
-  frames, invalid = align_to_reference(data, wcss, ref_index, exact)
+  frames, _ = align_to_reference(data, wcss, ref_index, exact)
+
+  keep = [
+      i
+      for i, f in enumerate(frames)
+      if i == ref_index or float(np.isfinite(f).mean()) >= min_valid_frac
+  ]
+  if len(keep) < 3:
+    raise ValueError(
+        f'Chỉ {len(keep)} khung phủ vùng tham chiếu sau khi đồng trục (cần >= 3).'
+    )
+  if len(keep) < len(frames):
+    print(f'  ⚠️ Loại {len(frames) - len(keep)} khung không phủ vùng tham chiếu.')
+  frames = [frames[i] for i in keep]
+  names = [names[i] for i in keep]
+  ref_index = keep.index(ref_index)
+
+  invalid = np.zeros(frames[0].shape, dtype=bool)
+  for f in frames:
+    invalid |= ~np.isfinite(f)
 
   fwhm_target = None
   if do_psf:
@@ -245,7 +267,25 @@ def prepare_stack(
     g = np.where(np.isfinite(f), f, med) - med
     out.append(g.astype(np.float32))
 
-  return np.array(out), names, invalid, fwhm_target
+  result = (np.array(out), list(names), invalid, fwhm_target)
+  return result + (keep,) if return_keep else result
+
+
+def prepare_stack(
+    files, ref_index=0, do_psf=True, do_scale=True, exact=False
+):
+  """Chuỗi tiền xử lý từ danh sách file: Load -> prepare_stack_arrays."""
+  data, wcss, names = [], [], []
+  for f in files:
+    try:
+      d, w = load_fits_with_wcs(f)
+      data.append(d)
+      wcss.append(w)
+      names.append(os.path.basename(f))
+    except Exception as e:
+      print(f"  ❌ Bỏ qua file lỗi '{os.path.basename(f)}': {e}")
+
+  return prepare_stack_arrays(data, wcss, names, ref_index, do_psf, do_scale, exact)
 
 
 # --------------------------------------------------------------------------
@@ -492,6 +532,7 @@ def find_planet_x_candidates(
     exact_reproject=False,
     run_injection=False,
     n_trials=8,
+    show=True,
 ):
   """Phân tích chuỗi ảnh FITS của một thiên thể và trực quan hóa kết quả."""
   target_name = os.path.basename(os.path.normpath(folder_path))
@@ -600,7 +641,8 @@ def find_planet_x_candidates(
       fontweight='bold',
   )
   plt.tight_layout(rect=[0, 0, 1, 0.96])
-  plt.show(block=True)
+  if show:
+    plt.show(block=True)
 
   if run_injection:
     rows = injection_recovery(
@@ -613,7 +655,10 @@ def find_planet_x_candidates(
     out_path = os.path.join(
         folder_path, f'{target_name}_injection_recovery.png'
     )
-    plot_injection_results(rows, out_png=out_path, show=True)
+    plot_injection_results(rows, out_png=out_path, show=show)
+
+  # show=False (chạy trên server): trả figure để Streamlit tự vẽ rồi tự đóng.
+  return None if show else fig
 
 
 def make_synthetic_stack(n=4, size=300, seed=1):
@@ -638,6 +683,10 @@ def make_synthetic_stack(n=4, size=300, seed=1):
 
 def run_gui_tool():
   """Giao diện chọn thư mục, cấu hình ngưỡng sigma và tùy chọn Injection-Recovery."""
+  # Import tại chỗ: Streamlit Cloud/server không có tkinter hay màn hình.
+  import tkinter as tk
+  from tkinter import filedialog, messagebox, simpledialog
+
   root = tk.Tk()
   root.withdraw()
   root.attributes('-topmost', True)
