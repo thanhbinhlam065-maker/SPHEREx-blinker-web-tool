@@ -571,7 +571,7 @@ with tab_blink:
     show_marks = st.checkbox("🔴 Khoanh vị trí dự đoán của ứng viên chuyển động", True)
     marks = [[] for _ in range(nf)]
     if show_marks and moving:
-        n_show = st.slider("Số ứng viên hiển thị", 1, min(6, len(moving)), min(3, len(moving)))
+        n_show = st.slider("Số ứng viên hiển thị", 1, min(6, len(moving)), min(0, len(moving)))
         marks = tracklet_marks(res, [t["id"] for t in moving[:n_show]])
     elif show_marks:
         st.caption("Chưa có ứng viên chuyển động — thử hạ ngưỡng σ hoặc tăng dung sai.")
