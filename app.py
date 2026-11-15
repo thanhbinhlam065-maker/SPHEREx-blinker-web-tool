@@ -283,7 +283,7 @@ with st.sidebar:
     # ---------------- Tham số phân tích ----------------
     st.divider()
     with st.expander("⚙️ Tham số phân tích", expanded=False):
-        sigma = st.slider("Ngưỡng phát hiện (σ)", 0.0, 9.0, 5.0, 0.25)
+        sigma = st.slider("Ngưỡng phát hiện (σ)", 0.0, 20.0, 5.0, 0.25)
         vmax_as = st.number_input("Chuyển động tối đa (″/năm)", 0.5, 600.0, 20.0, 1.0)
         tol_px = st.slider("Dung sai liên kết (px)", 0.5, 4.0, 1.5, 0.25)
         min_ep = st.slider("Số epoch tối thiểu / quỹ đạo", 3, 12, 3)
@@ -318,7 +318,7 @@ def run_fetch(req) -> bool:
                 out = spx.run_spherex_cutout_pipeline(
                     coord=coord, size=req["size"] * u.deg, bandpass=req["band"],
                     output_filename=req["path"], parallel=True, max_workers=req["workers"],
-                    max_cutouts=req["max_cut"], plot=False, time_limit_s=req["limit"] * 60,
+                    max_cutouts=req["max_cut"], time_limit_s=req["limit"] * 60,
                     min_cutouts=2, progress_cb=cb)
             else:
                 import ImageGenerate_WISE as wise
