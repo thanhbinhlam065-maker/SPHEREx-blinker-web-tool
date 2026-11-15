@@ -4,7 +4,7 @@ An end-to-end astronomical image-processing and kinematic tracking web applicati
 🎥 **Video Demonstration:** `(https://drive.google.com/file/d/16N5wpTXAjdbEPcUSZu9uOczOdTaUNw4w/view?usp=drive_link)`
 
 > **⚠️ Service Status Note (IRSA TAP Outage Fallback):**  
-> Because NASA's IRSA TAP service experienced downtime during the submission window, this repository comes **pre-loaded with a real multi-epoch SPHEREx MEF dataset** (`sample_data/[your_file_name].fits`) so judges can immediately run the full analysis pipeline out of the box. Live querying from **unWISE / Legacy Survey** and custom **FITS/MEF file uploads** are also fully supported.
+> Because NASA's IRSA TAP service experienced downtime during the submission window, this repository comes **pre-loaded with a real multi-epoch SPHEREx MEF dataset** (`spherex_cutouts_mef.fits`) so judges can immediately run the full analysis pipeline out of the box. Live querying from **unWISE / Legacy Survey** and custom **FITS/MEF file uploads** are also fully supported.
 
 ---
 
