@@ -22,7 +22,7 @@ import streamlit.components.v1 as components
 from PIL import ImageDraw
 
 st.set_page_config(
-    page_title="Planet X Hunter | SPHEREx & WISE",
+    page_title="Planet X Hunter | SPHEREx AND WISE",
     page_icon="🔭",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -150,9 +150,9 @@ TEXTS = {
         "df_snr": "SNR TB",
         "tabs": [
             "🎬 Blinker",
-            "🎯 Ứng viên & vận tốc",
-            "➖ Trừ ảnh & Stack",
-            "📈 Phổ & Đường cong sáng",
+            "🎯 Ứng viên và vận tốc",
+            "➖ Trừ ảnh và Stack",
+            "📈 Phổ và Đường cong sáng",
             "🔬 Độ nhạy (Injection)",
             "ℹ️ Thông tin",
         ],
@@ -195,7 +195,7 @@ TEXTS = {
         "diff_static": "Nền tĩnh (median stack)",
         "diff_title": "T2 − T1 | {n} phát hiện (T2)",
         "diff_caption": "Vòng xanh: nguồn vượt ngưỡng σ trên ảnh (T2 − nền tĩnh) sau khi đã loại sao bão hoà/viền.",
-        "phot_subheader": "Phổ & đường cong sáng (quang trắc khẩu độ trên ảnh gốc)",
+        "phot_subheader": "Phổ và đường cong sáng (quang trắc khẩu độ trên ảnh gốc)",
         "phot_caption": "Dùng ảnh gốc (chưa chuẩn hoá thông lượng) và chuyển vị trí qua WCS của từng epoch.",
         "phot_pos": "Vị trí lấy mẫu",
         "phot_fixed": "Cố định (toạ độ pixel)",
@@ -210,7 +210,7 @@ TEXTS = {
         "phot_no_spec": "Nguồn này chỉ có một kênh phổ nên không vẽ phổ.",
         "sens_subheader": "Injection–Recovery: đo độ nhạy thật của pipeline",
         "sens_caption": (
-            "Bơm nguồn Gaussian giả (SNR & tốc độ khác nhau) vào chuỗi ảnh rồi đo tỷ lệ phát hiện lại. "
+            "Bơm nguồn Gaussian giả (SNR và tốc độ khác nhau) vào chuỗi ảnh rồi đo tỷ lệ phát hiện lại. "
             "Chạy lưới rút gọn để kịp thời gian."
         ),
         "sens_btn": "▶️ Chạy mô phỏng",
@@ -346,9 +346,9 @@ rất chậm (kiểu Planet X thực sự) cần baseline dài như WISE/NEOWISE
         "df_snr": "Mean SNR",
         "tabs": [
             "🎬 Blinker",
-            "🎯 Candidates & Velocity",
-            "➖ Image Diff & Stack",
-            "📈 Spectrum & Light Curve",
+            "🎯 Candidates and Velocity",
+            "➖ Image Diff and Stack",
+            "📈 Spectrum and Light Curve",
             "🔬 Sensitivity (Injection)",
             "ℹ️ About",
         ],
@@ -391,7 +391,7 @@ rất chậm (kiểu Planet X thực sự) cần baseline dài như WISE/NEOWISE
         "diff_static": "Static sky (median stack)",
         "diff_title": "T2 − T1 | {n} detections (T2)",
         "diff_caption": "Green circles: sources above σ threshold on (T2 − static sky) after masking saturated/edge pixels.",
-        "phot_subheader": "Spectrum & light curve (aperture photometry on raw images)",
+        "phot_subheader": "Spectrum and light curve (aperture photometry on raw images)",
         "phot_caption": "Uses raw images (before flux normalization) and transforms coordinates via each epoch's WCS.",
         "phot_pos": "Sampling position",
         "phot_fixed": "Fixed (pixel coordinates)",
@@ -406,7 +406,7 @@ rất chậm (kiểu Planet X thực sự) cần baseline dài như WISE/NEOWISE
         "phot_no_spec": "This source only has a single spectral band, so no spectrum is plotted.",
         "sens_subheader": "Injection–Recovery: measure true pipeline sensitivity",
         "sens_caption": (
-            "Injects synthetic Gaussian sources (varying SNR & speed) into the stack and measures recovery rate. "
+            "Injects synthetic Gaussian sources (varying SNR and speed) into the stack and measures recovery rate. "
             "Uses a compact grid for speed."
         ),
         "sens_btn": "▶️ Run simulation",
@@ -586,7 +586,7 @@ with st.sidebar:
     T = TEXTS[st.session_state.lang]
 
     st.title("🔭 Planet X Hunter")
-    st.caption("NASA Space Apps Challenge — SPHEREx & WISE")
+    st.caption("NASA Space Apps Challenge — SPHEREx and WISE")
 
     st.selectbox(
         T["target_select"],
