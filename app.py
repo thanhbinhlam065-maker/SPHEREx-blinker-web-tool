@@ -986,7 +986,7 @@ with tab_blink:
     mode = c1.selectbox(T["blink_stretch"], ["ZScale", "Asinh", "Log", "Linear"])
     cmap = c2.selectbox(T["blink_cmap"], ["inferno", "viridis", "magma", "gray", "cividis"])
     per_frame = c3.checkbox(T["blink_per_frame"], True)
-    crop = c4.slider("FoV (%)", 30, 100, 100, 10)
+    crop = c4.slider("FoV (%)", 30, 200, 100, 10)
     speed = c5.slider(T["blink_speed"], 100, 1500, 400, 50)
 
     show_marks = st.checkbox(T["blink_show_marks"], True)
