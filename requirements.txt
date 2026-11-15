@@ -4,3 +4,8 @@ matplotlib
 astropy
 pillow
 scipy
+astroquery
+reproject
+photutils
+opencv-python-headless
+requests
