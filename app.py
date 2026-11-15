@@ -701,7 +701,7 @@ with st.sidebar:
     # ---------------- Tham số phân tích ----------------
     st.divider()
     with st.expander(T["param_expander"], expanded=False):
-        sigma = st.slider(T["param_sigma"], 3.0, 9.0, 5.0, 0.5)
+        sigma = st.slider(T["param_sigma"], 0.0, 20.0, 5.0, 0.25)
         vmax_as = st.number_input(T["param_vmax"], 0.5, 600.0, 20.0, 1.0)
         tol_px = st.slider(T["param_tol"], 0.5, 4.0, 1.5, 0.25)
         min_ep = st.slider(T["param_min_ep"], 3, 12, 3)
